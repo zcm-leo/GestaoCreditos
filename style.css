@@ -665,3 +665,40 @@ tbody tr:hover {
         visibility: visible;
     }
 }
+
+/* Estilos para os novos Formulários do Dashboard */
+.conditional-field {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: var(--light-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 4px;
+}
+
+.conditional-field.active {
+    display: block;
+}
+
+.form-info-text {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+    background-color: #e9ecef;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    white-space: pre-line; /* Mantém as quebras de linha do texto VIPAL */
+}
+
+/* Ajuste do grid para o card de formulários */
+#card-formularios {
+    grid-column: 1 / -1; /* Faz o card ocupar a largura total da linha */
+}
+#card-formularios .quick-action-card {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+#card-formularios .quick-action-card .btn {
+    flex: 1;
+    min-width: 200px;
+}
