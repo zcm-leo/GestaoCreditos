@@ -99,11 +99,29 @@ const App = {
                 : '';
 
             let dashboardHtml = `
-                <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <h2>Bem-vindo, ${this.userProfile.full_name}!</h2>
                     ${managementButtonHtml}
                 </div>`;
             
+            // <<< NOVO: Card de Formulários no topo >>>
+            const canViewAllCredits = this.userProfile.permissions?.creditos?.view === 'all';
+            if (canViewAllCredits) {
+                dashboardHtml += `
+                    <div class="dashboard-section" id="card-formularios">
+                        <h3>Formulários</h3>
+                        <div class="dashboard-grid">
+                            <div class="card quick-action-card">
+                                <button id="btn-form-segunda-via" class="btn btn-primary">Segunda via</button>
+                                <button id="btn-form-catalogo" class="btn btn-primary">Catálogo</button>
+                                <button id="btn-form-brindes" class="btn btn-primary">Brindes/Bonificação</button>
+                                <button id="btn-form-romaneio" class="btn btn-primary">Romaneio</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             const roleRenderers = {
                 'VENDEDOR': this._renderVendedorDashboard,
                 'CAIXA': this._renderCaixaDashboard,
@@ -120,7 +138,7 @@ const App = {
                 }
             }
 
-            if (renderedSections.size === 0 && !canManageWidgets) {
+            if (renderedSections.size === 0 && !canManageWidgets && !canViewAllCredits) {
                 dashboardHtml += '<div class="card"><p>Você não possui uma função com dashboard definido.</p></div>';
             }
 
@@ -135,7 +153,7 @@ const App = {
             this.hideLoader();
         }
     },
-
+    
     async _renderVendedorDashboard() {
         const { data: avisos } = await supabase.from('avisos').select('content').eq('is_active', true).gt('expires_at', new Date().toISOString());
         const avisosHtml = avisos && avisos.length > 0 ? `<ul>${avisos.map(a => `<li>${a.content}</li>`).join('')}</ul>` : '<p>Nenhum aviso no momento.</p>';
@@ -257,34 +275,24 @@ const App = {
     setupHomeEventListeners() {
         const contentArea = document.getElementById('content-area');
         
+        // Listeners existentes...
         contentArea.querySelectorAll('.home-add-proof').forEach(button => {
-            button.addEventListener('click', () => {
-                this.modules.comprovantes.renderProofModal();
-            });
+            button.addEventListener('click', () => this.modules.comprovantes.renderProofModal());
         });
 
         contentArea.querySelectorAll('.home-add-credit').forEach(button => {
-            button.addEventListener('click', () => {
-                this.modules.creditos.renderCreditModal();
-            });
+            button.addEventListener('click', () => this.modules.creditos.renderCreditModal());
         });
 
         const addSolicitacaoBtn = contentArea.querySelector('#home-add-solicitacao');
-        if (addSolicitacaoBtn) {
-            addSolicitacaoBtn.addEventListener('click', () => {
-                this.modules.solicitacoes.renderRequestModal();
-            });
-        }
+        if (addSolicitacaoBtn) addSolicitacaoBtn.addEventListener('click', () => this.modules.solicitacoes.renderRequestModal());
 
         contentArea.querySelectorAll('.home-search-credit-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const searchCard = e.target.closest('.search-card');
                 if (searchCard) {
                     const input = searchCard.querySelector('.home-search-credit-input');
-                    const clientCode = input.value;
-                    if (clientCode) {
-                        this.navigateToModule('creditos', { client_code: clientCode, status: 'Disponível' });
-                    }
+                    if (input.value) this.navigateToModule('creditos', { client_code: input.value, status: 'Disponível' });
                 }
             });
         });
@@ -304,43 +312,37 @@ const App = {
         }
 
         contentArea.querySelectorAll('.stat-card[data-status-filter]').forEach(card => {
-            card.addEventListener('click', () => {
-                const status = card.dataset.statusFilter;
-                this.navigateToModule('comprovantes', { status: status });
-            });
+            card.addEventListener('click', () => this.navigateToModule('comprovantes', { status: card.dataset.statusFilter }));
         });
 
         const manageWidgetsBtn = contentArea.querySelector('#btn-manage-widgets');
-        if (manageWidgetsBtn) {
-            manageWidgetsBtn.addEventListener('click', () => this.renderManagementModal());
-        }
+        if (manageWidgetsBtn) manageWidgetsBtn.addEventListener('click', () => this.renderManagementModal());
 
         const creditStatCard = contentArea.querySelector('#widget-vendedor-creditos-card');
         if (creditStatCard) {
             creditStatCard.addEventListener('click', () => {
-                if (this.userProfile.seller_id_erp) {
-                    this.navigateToModule('creditos', {
-                        seller_id: this.userProfile.seller_id_erp,
-                        status: 'Disponível'
-                    });
-                }
+                if (this.userProfile.seller_id_erp) this.navigateToModule('creditos', { seller_id: this.userProfile.seller_id_erp, status: 'Disponível' });
             });
         }
 
         const solicitacoesStatCard = contentArea.querySelector('#widget-vendedor-solicitacoes-card');
-        if (solicitacoesStatCard) {
-            solicitacoesStatCard.addEventListener('click', () => {
-                this.navigateToModule('solicitacoes', { status: 'PENDENTE' });
-            });
-        }
+        if (solicitacoesStatCard) solicitacoesStatCard.addEventListener('click', () => this.navigateToModule('solicitacoes', { status: 'PENDENTE' }));
 
-        // <<< LISTENER ADICIONADO PARA O NOVO CARD DO CAIXA >>>
         const solicitacoesCaixaCard = contentArea.querySelector('#widget-caixa-solicitacoes-card');
-        if (solicitacoesCaixaCard) {
-            solicitacoesCaixaCard.addEventListener('click', () => {
-                this.navigateToModule('solicitacoes', { status: 'PENDENTE' });
-            });
-        }
+        if (solicitacoesCaixaCard) solicitacoesCaixaCard.addEventListener('click', () => this.navigateToModule('solicitacoes', { status: 'PENDENTE' }));
+
+        // <<< NOVOS LISTENERS PARA OS FORMULÁRIOS >>>
+        const btnSegundaVia = contentArea.querySelector('#btn-form-segunda-via');
+        if (btnSegundaVia) btnSegundaVia.addEventListener('click', () => this.renderModalSegundaVia());
+
+        const btnCatalogo = contentArea.querySelector('#btn-form-catalogo');
+        if (btnCatalogo) btnCatalogo.addEventListener('click', () => this.renderModalCatalogo());
+
+        const btnBrindes = contentArea.querySelector('#btn-form-brindes');
+        if (btnBrindes) btnBrindes.addEventListener('click', () => this.renderModalBrindes());
+
+        const btnRomaneio = contentArea.querySelector('#btn-form-romaneio');
+        if (btnRomaneio) btnRomaneio.addEventListener('click', () => this.renderModalRomaneio());
     },
 
     async renderManagementModal() {
@@ -626,4 +628,299 @@ const App = {
 
     showLoader() { document.getElementById('loader').classList.add('active'); },
     hideLoader() { document.getElementById('loader').classList.remove('active'); },
+
+    // ==========================================
+    // MÉTODOS PARA OS FORMULÁRIOS DO DASHBOARD
+    // ==========================================
+
+    async submitFormularioDashboard(endpoint, payload) {
+        this.showLoader();
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 segundos
+
+            // NOTA DE SEGURANÇA: Aqui você aponta para sua API Vercel (ex: /api/segunda-via)
+            // que então redirecionará para o webhook real de forma segura.
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error(`Falha na comunicação (Status: ${response.status})`);
+
+            const htmlContent = await response.text();
+
+            // Abre o retorno HTML em uma nova aba
+            const newWindow = window.open('', '_blank');
+            if (newWindow) {
+                newWindow.document.write(htmlContent);
+                newWindow.document.close();
+            } else {
+                alert('Aviso: O pop-up foi bloqueado pelo seu navegador. Por favor, permita pop-ups para este site.');
+            }
+
+            document.getElementById('modal-container').classList.remove('active');
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                alert('Tempo limite de 90 segundos excedido. O servidor demorou muito para responder.');
+            } else {
+                alert('Erro ao processar a solicitação: ' + error.message);
+            }
+        } finally {
+            this.hideLoader();
+        }
+    },
+
+    renderModalSegundaVia() {
+        const modalBody = document.getElementById('modal-body');
+        modalBody.innerHTML = `
+            <h2>Segunda via</h2>
+            <form id="form-segunda-via">
+                <div class="form-group">
+                    <label>Código do Cliente *</label>
+                    <input type="text" id="sv-cod-cliente" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo *</label>
+                    <select id="sv-tipo" required>
+                        <option value="">Selecione...</option>
+                        <option value="BOLETOS VENCIDOS">BOLETOS VENCIDOS</option>
+                        <option value="BOLETOS A VENCER">BOLETOS A VENCER</option>
+                        <option value="TODOS OS BOLETOS">TODOS OS BOLETOS</option>
+                        <option value="ESPELHO + BOL">ESPELHO + BOL</option>
+                        <option value="PEDIDOS RECENTES">PEDIDOS RECENTES</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Código do Pedido <span id="sv-pedido-req" style="display:none; color:red;">*</span></label>
+                    <input type="text" id="sv-cod-pedido">
+                </div>
+                <button type="submit" class="btn btn-primary">Gerar Relatório</button>
+            </form>
+        `;
+        document.getElementById('modal-container').classList.add('active');
+
+        const tipoSelect = document.getElementById('sv-tipo');
+        const pedidoInput = document.getElementById('sv-cod-pedido');
+        const pedidoReq = document.getElementById('sv-pedido-req');
+
+        tipoSelect.addEventListener('change', () => {
+            if (tipoSelect.value === 'ESPELHO + BOL') {
+                pedidoInput.required = true;
+                pedidoReq.style.display = 'inline';
+            } else {
+                pedidoInput.required = false;
+                pedidoReq.style.display = 'none';
+            }
+        });
+
+        document.getElementById('form-segunda-via').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                codigo_cliente: document.getElementById('sv-cod-cliente').value,
+                tipo: tipoSelect.value,
+                codigo_pedido: pedidoInput.value || null
+            };
+            this.submitFormularioDashboard('/api/segunda-via', payload); // Altere para seu endpoint seguro
+        });
+    },
+
+    renderModalCatalogo() {
+        const modalBody = document.getElementById('modal-body');
+        modalBody.innerHTML = `
+            <h2>Catálogo</h2>
+            <form id="form-catalogo">
+                <div class="form-group">
+                    <label>Tabela *</label>
+                    <select id="cat-tabela" required>
+                        <option value="">Selecione...</option>
+                        <option value="Oportunidades">Oportunidades</option>
+                        <option value="Geral">Geral</option>
+                        <option value="Bonificação">Bonificação</option>
+                        <option value="Específica">Específica</option>
+                    </select>
+                </div>
+                
+                <div id="cat-cond-oportunidades" class="conditional-field">
+                    <label>Opções de Oportunidades (Selecione uma ou mais):</label>
+                    <select id="cat-oportunidades-list" multiple size="6" class="form-control">
+                        <option value="TOP 80">TOP 80</option>
+                        <option value="PNEUS">PNEUS</option>
+                        <option value="MAQUINAS & FERRAMENTAS">MAQUINAS & FERRAMENTAS</option>
+                        <option value="DANMA & OUMURS">DANMA & OUMURS</option>
+                        <option value="HONDA">HONDA</option>
+                        <option value="ESCALONADA">ESCALONADA</option>
+                    </select>
+                    <small>Segure Ctrl (ou Cmd) para selecionar várias.</small>
+                </div>
+
+                <div id="cat-cond-especifica" class="conditional-field">
+                    <div class="form-group">
+                        <label>Filtro Específico</label>
+                        <select id="cat-esp-filtro">
+                            <option value="">Selecione...</option>
+                            <option value="Grupo">Grupo</option>
+                            <option value="Linha">Linha</option>
+                            <option value="Marca">Marca</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Códigos Específicos (separados por vírgula)</label>
+                        <input type="text" id="cat-esp-codigos" placeholder="Ex: 154, 321, 454">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Gerar Catálogo</button>
+            </form>
+        `;
+        document.getElementById('modal-container').classList.add('active');
+
+        const tabelaSelect = document.getElementById('cat-tabela');
+        const condOportunidades = document.getElementById('cat-cond-oportunidades');
+        const condEspecifica = document.getElementById('cat-cond-especifica');
+        const opList = document.getElementById('cat-oportunidades-list');
+        const espFiltro = document.getElementById('cat-esp-filtro');
+        const espCodigos = document.getElementById('cat-esp-codigos');
+
+        tabelaSelect.addEventListener('change', () => {
+            condOportunidades.classList.remove('active');
+            condEspecifica.classList.remove('active');
+            opList.required = false;
+            espCodigos.required = false;
+
+            if (tabelaSelect.value === 'Oportunidades') {
+                condOportunidades.classList.add('active');
+                opList.required = true;
+            } else if (tabelaSelect.value === 'Específica') {
+                condEspecifica.classList.add('active');
+                espCodigos.required = true;
+            }
+        });
+
+        document.getElementById('form-catalogo').addEventListener('submit', (e) => {
+            e.preventDefault();
+            let payload = { tabela: tabelaSelect.value };
+
+            if (tabelaSelect.value === 'Oportunidades') {
+                payload.oportunidades = Array.from(opList.selectedOptions).map(opt => opt.value);
+            } else if (tabelaSelect.value === 'Específica') {
+                payload.especifica_filtro = espFiltro.value;
+                payload.especifica_codigos = espCodigos.value;
+            }
+
+            this.submitFormularioDashboard('/api/catalogo', payload); // Altere para seu endpoint seguro
+        });
+    },
+
+    renderModalBrindes() {
+        const modalBody = document.getElementById('modal-body');
+        modalBody.innerHTML = `
+            <h2>Brindes/Bonificação</h2>
+            <div class="form-info-text">
+                <strong>REGRAS DA BONIFICAÇÃO</strong><br><br>
+                Compra mínima de R$ 3.000,00 em itens VIPAL: Bonificação de 3% sobre o valor total dos produtos VIPAL.<br><br>
+                Compra mínima de R$ 5.000,00 em itens VIPAL: Bonificação de 5% sobre o valor total dos produtos VIPAL.
+            </div>
+            <form id="form-brindes">
+                <div class="form-group">
+                    <label>Tipo *</label>
+                    <select id="bb-tipo" required>
+                        <option value="">Selecione...</option>
+                        <option value="BRINDE">BRINDE</option>
+                        <option value="BONIFICAÇÃO">BONIFICAÇÃO</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>idVN *</label>
+                    <input type="number" id="bb-idvn" required>
+                </div>
+                <div class="form-group">
+                    <label>idVA *</label>
+                    <input type="number" id="bb-idva" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Processar Solicitação</button>
+            </form>
+        `;
+        document.getElementById('modal-container').classList.add('active');
+
+        document.getElementById('form-brindes').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                tipo: document.getElementById('bb-tipo').value,
+                idVN: Number(document.getElementById('bb-idvn').value),
+                idVA: Number(document.getElementById('bb-idva').value)
+            };
+            this.submitFormularioDashboard('/api/brindes-bonificacao', payload); // Altere para seu endpoint seguro
+        });
+    },
+
+    renderModalRomaneio() {
+        const modalBody = document.getElementById('modal-body');
+        modalBody.innerHTML = `
+            <h2>Romaneio</h2>
+            <form id="form-romaneio">
+                <div class="form-group">
+                    <label>Data Inicial *</label>
+                    <input type="date" id="rom-data-inicial" required>
+                </div>
+                <div class="form-group">
+                    <label>Data Final *</label>
+                    <input type="date" id="rom-data-final" required>
+                </div>
+                <div class="form-group">
+                    <label>Opção de Romaneio *</label>
+                    <select id="rom-opcao" required>
+                        <option value="">Selecione...</option>
+                        <option value="Todos">Todos</option>
+                        <option value="Com Romaneio">Com Romaneio</option>
+                        <option value="Sem Romaneio">Sem Romaneio</option>
+                        <option value="Romaneios Específicos">Romaneios Específicos</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Vendedores (opcional)</label>
+                    <input type="text" id="rom-vendedores" placeholder="Ex: João, Maria">
+                </div>
+                <div class="form-group">
+                    <label>Rotas (opcional)</label>
+                    <input type="text" id="rom-rotas" placeholder="Ex: Rota A, Rota B">
+                </div>
+                <div id="rom-cond-especifico" class="conditional-field">
+                    <label>Código dos Romaneios</label>
+                    <input type="text" id="rom-codigos" placeholder="Ex: 12345, 67890">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Gerar Romaneio</button>
+            </form>
+        `;
+        document.getElementById('modal-container').classList.add('active');
+
+        const opcaoSelect = document.getElementById('rom-opcao');
+        const condEspecifico = document.getElementById('rom-cond-especifico');
+
+        opcaoSelect.addEventListener('change', () => {
+            if (opcaoSelect.value === 'Romaneios Específicos') {
+                condEspecifico.classList.add('active');
+            } else {
+                condEspecifico.classList.remove('active');
+                document.getElementById('rom-codigos').value = '';
+            }
+        });
+
+        document.getElementById('form-romaneio').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                data_inicial: document.getElementById('rom-data-inicial').value,
+                data_final: document.getElementById('rom-data-final').value,
+                romaneio_opcao: opcaoSelect.value,
+                vendedores: document.getElementById('rom-vendedores').value || null,
+                rotas: document.getElementById('rom-rotas').value || null,
+                codigo_romaneios: document.getElementById('rom-codigos').value || null
+            };
+            this.submitFormularioDashboard('/api/romaneio', payload); // Altere para seu endpoint seguro
+        });
+    }
 };
