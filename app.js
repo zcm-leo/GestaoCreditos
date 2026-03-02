@@ -629,9 +629,9 @@ const App = {
     showLoader() { document.getElementById('loader').classList.add('active'); },
     hideLoader() { document.getElementById('loader').classList.remove('active'); },
 
-    // ==========================================
+    // =========================================
     // MÉTODOS PARA OS FORMULÁRIOS DO DASHBOARD
-    // ==========================================
+    // =========================================
 
     async submitFormularioDashboard(endpoint, payload) {
         this.showLoader();
